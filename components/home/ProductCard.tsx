@@ -9,6 +9,7 @@ import { Product, useCartStore, useWishlistStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { toast } from "sonner";
 
 interface ProductCardProps {
   product: Product;
@@ -28,6 +29,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const handleAddToCart = () => {
     addToCart(product);
+    toast.success(`${product.name} added to cart!`);
   };
 
   return (
