@@ -6,7 +6,13 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 
@@ -171,7 +177,8 @@ export default function RegisterPage() {
                     disabled={loading}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Must be at least 8 characters with uppercase, lowercase, number, and special character
+                    Must be at least 8 characters with uppercase, lowercase,
+                    number, and special character
                   </p>
                 </div>
                 <div>
@@ -186,7 +193,12 @@ export default function RegisterPage() {
                     disabled={loading}
                   />
                 </div>
-                <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  size="lg"
+                  disabled={loading}
+                >
                   {loading ? "Creating Account..." : "Create Account"}
                 </Button>
                 <p className="text-sm text-center text-muted-foreground">

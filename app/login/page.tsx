@@ -6,7 +6,13 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 
@@ -98,12 +104,11 @@ export default function LoginPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="remember"
-                      className="rounded"
-                    />
-                    <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
+                    <input type="checkbox" id="remember" className="rounded" />
+                    <Label
+                      htmlFor="remember"
+                      className="text-sm font-normal cursor-pointer"
+                    >
                       Remember me
                     </Label>
                   </div>
@@ -114,7 +119,12 @@ export default function LoginPage() {
                     Forgot password?
                   </Link>
                 </div>
-                <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  size="lg"
+                  disabled={loading}
+                >
                   {loading ? "Signing In..." : "Sign In"}
                 </Button>
               </form>
@@ -125,8 +135,8 @@ export default function LoginPage() {
             <CardHeader>
               <CardTitle>New Customers</CardTitle>
               <CardDescription>
-                Creating an account has many benefits: check out faster, keep more
-                than one address, track orders and more.
+                Creating an account has many benefits: check out faster, keep
+                more than one address, track orders and more.
               </CardDescription>
             </CardHeader>
             <CardContent>
