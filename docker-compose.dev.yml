@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: jewellery_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jewellery_user
+      POSTGRES_PASSWORD: jewellery_password
+      POSTGRES_DB: jewellery_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jewellery_user -d jewellery_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Next.js Development Server
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: jewellery_app_dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://jewellery_user:jewellery_password@postgres:5432/jewellery_db?schema=public
+      JWT_SECRET: your-super-secret-jwt-key-minimum-32-characters-long-change-this-in-production
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    command: >
+      sh -c "
+        npx prisma generate &&
+        (npx prisma migrate dev --name init --skip-seed || true) &&
+        npm run db:seed &&
+        npm run dev
+      "
+
+volumes:
+  postgres_data_dev:
+    driver: local
