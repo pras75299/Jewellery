@@ -37,19 +37,14 @@ export default function ProductCard({ product }: ProductCardProps) {
     >
       <Card className="group overflow-hidden hover:shadow-xl transition-all duration-300 border-2 hover:border-primary/50">
         <div className="relative aspect-square overflow-hidden bg-muted">
-          <Link href={`/products/${product.id}`}>
-            <motion.div
-              whileHover={{ scale: 1.1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Image
-                src={product.image}
-                alt={product.name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              />
-            </motion.div>
+          <Link href={`/products/${product.id}`} className="block w-full h-full">
+            <Image
+              src={product.image}
+              alt={product.name}
+              fill
+              className="object-cover transition-transform duration-300 group-hover:scale-110"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            />
           </Link>
           {product.originalPrice && (
             <motion.div
