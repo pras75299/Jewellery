@@ -19,8 +19,10 @@ export default function Header() {
 
   useEffect(() => {
     setMounted(true);
+    // Check auth once on mount (checkAuth has internal guards against duplicate calls)
     checkAuth();
-  }, [checkAuth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run once on mount
 
   const handleLogout = async () => {
     await logout();
