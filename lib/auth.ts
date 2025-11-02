@@ -1,9 +1,28 @@
 import { NextRequest } from 'next/server';
 import * as jwt from 'jsonwebtoken';
 import { prisma } from './prisma';
-import { env } from './env';
 
-const JWT_SECRET = env.JWT_SECRET;
+// Lazy load env to avoid validation errors during Prisma CLI operations
+function getEnv() {
+  try {
+    const { env } = require('./env');
+    return env;
+  } catch {
+    // Fallback for Prisma CLI operations
+    return {
+      JWT_SECRET: process.env.JWT_SECRET || '',
+      NODE_ENV: process.env.NODE_ENV || 'development',
+    };
+  }
+}
+
+const getJWTSecret = () => {
+  const env = getEnv();
+  if (!env.JWT_SECRET) {
+    throw new Error('JWT_SECRET must be set in environment variables');
+  }
+  return env.JWT_SECRET;
+};
 
 export interface JWTPayload {
   userId: string;
@@ -13,7 +32,8 @@ export interface JWTPayload {
 
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    const secret = getJWTSecret();
+    const decoded = jwt.verify(token, secret) as JWTPayload;
     return decoded;
   } catch (error) {
     return null;
@@ -65,10 +85,12 @@ export async function requireAdmin(request: NextRequest) {
 }
 
 export function generateToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+  const secret = getJWTSecret();
+  return jwt.sign(payload, secret, { expiresIn: '24h' });
 }
 
 export function setAuthCookie(token: string) {
+  const env = getEnv();
   return `auth-token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400; ${
     env.NODE_ENV === 'production' ? 'Secure;' : ''
   }`;
