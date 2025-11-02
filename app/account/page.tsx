@@ -9,8 +9,22 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, ShoppingBag, Heart, MapPin, CreditCard } from "lucide-react";
+import { User, ShoppingBag, Heart, MapPin, CreditCard, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
+import { toast } from "sonner";
+
+interface Address {
+  id: string;
+  fullName: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  isDefault: boolean;
+}
 
 export default function AccountPage() {
   const router = useRouter();
@@ -23,12 +37,18 @@ export default function AccountPage() {
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(true);
+  const [deletingAddressId, setDeletingAddressId] = useState<string | null>(null);
 
   useEffect(() => {
+    // Check auth only once on mount
     checkAuth();
-    if (!user) {
-      router.push("/login");
-    } else {
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    // Handle user state separately
+    if (user) {
       // Populate form with user data
       const nameParts = user.name?.split(' ') || [];
       setFormData({
@@ -36,8 +56,64 @@ export default function AccountPage() {
         lastName: nameParts.slice(1).join(' ') || "",
         phone: user.phone || "",
       });
+    } else if (user === null) {
+      // Only redirect if we've checked auth and user is null
+      router.push("/login");
     }
-  }, [checkAuth, user, router]);
+  }, [user, router]);
+
+  useEffect(() => {
+    const fetchAddresses = async () => {
+      if (!user || activeTab !== "addresses") {
+        setLoadingAddresses(false);
+        return;
+      }
+
+      try {
+        setLoadingAddresses(true);
+        const response = await fetch("/api/addresses");
+        const data = await response.json();
+        if (data.success && data.data) {
+          setAddresses(data.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch addresses:", error);
+        toast.error("Failed to load addresses");
+      } finally {
+        setLoadingAddresses(false);
+      }
+    };
+
+    fetchAddresses();
+    // Fetch when tab changes OR when user becomes available
+  }, [activeTab, user]);
+
+  const handleDeleteAddress = async (addressId: string) => {
+    if (!confirm("Are you sure you want to delete this address?")) {
+      return;
+    }
+
+    setDeletingAddressId(addressId);
+    try {
+      const response = await fetch(`/api/addresses/${addressId}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setAddresses(addresses.filter((addr) => addr.id !== addressId));
+        toast.success("Address deleted successfully");
+      } else {
+        toast.error(data.error || "Failed to delete address");
+      }
+    } catch (error) {
+      console.error("Delete address error:", error);
+      toast.error("Failed to delete address");
+    } finally {
+      setDeletingAddressId(null);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,22 +280,95 @@ export default function AccountPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-semibold">Home Address</p>
-                      <p className="text-sm text-muted-foreground">
-                        E-199 Kalka Ji, New Delhi, 110019
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      Edit
+                {loadingAddresses ? (
+                  <div className="space-y-2">
+                    <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
+                    <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
+                  </div>
+                ) : addresses.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">
+                      No saved addresses yet.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push("/checkout")}
+                    >
+                      Add New Address
                     </Button>
                   </div>
-                </div>
-                <Button variant="outline" className="w-full">
-                  Add New Address
-                </Button>
+                ) : (
+                  <>
+                    <div className="space-y-3">
+                      {addresses.map((address) => (
+                        <div
+                          key={address.id}
+                          className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold">
+                                  {address.fullName}
+                                </span>
+                                {address.isDefault && (
+                                  <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
+                                    Default
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {address.addressLine1}
+                                {address.addressLine2 && `, ${address.addressLine2}`}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {address.city}, {address.state} - {address.postalCode}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {address.country}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Phone: {address.phone}
+                              </p>
+                            </div>
+                            <div className="flex gap-2 ml-4">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => router.push("/checkout")}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteAddress(address.id)}
+                                disabled={deletingAddressId === address.id}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                {deletingAddressId === address.id ? (
+                                  "Deleting..."
+                                ) : (
+                                  <>
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Delete
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => router.push("/checkout")}
+                    >
+                      + Add New Address
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
