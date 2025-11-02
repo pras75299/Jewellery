@@ -131,33 +131,45 @@ export const useWishlistStore = create<WishlistStore>()(
   )
 );
 
-export const useAuthStore = create<AuthStore>()((set) => ({
-  user: null,
-  setUser: (user) => set({ user }),
-  checkAuth: async () => {
-    try {
-      const response = await fetch('/api/auth/me');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data) {
-          set({ user: data.data });
+export const useAuthStore = create<AuthStore>()((set, get) => {
+  let checkingAuth = false; // Flag to prevent concurrent calls
+
+  return {
+    user: null,
+    setUser: (user) => set({ user }),
+    checkAuth: async () => {
+      // Prevent concurrent calls
+      if (checkingAuth) {
+        return;
+      }
+
+      checkingAuth = true;
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            set({ user: data.data });
+          } else {
+            set({ user: null });
+          }
         } else {
           set({ user: null });
         }
-      } else {
+      } catch (error) {
+        console.error('Auth check failed:', error);
         set({ user: null });
+      } finally {
+        checkingAuth = false;
       }
-    } catch (error) {
-      console.error('Auth check failed:', error);
+    },
+    logout: async () => {
+      try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+      } catch (error) {
+        console.error('Logout failed:', error);
+      }
       set({ user: null });
-    }
-  },
-  logout: async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-    set({ user: null });
-  },
-}));
+    },
+  };
+});
