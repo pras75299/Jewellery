@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Header from "@/components/layout/Header";
@@ -16,7 +15,11 @@ import { toast } from "sonner";
 import ProductCard from "@/components/home/ProductCard";
 import Link from "next/link";
 
-export default function ProductPage({ params }: { params: { id: string } | Promise<{ id: string }> }) {
+export default function ProductPage({
+  params,
+}: {
+  params: { id: string } | Promise<{ id: string }>;
+}) {
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,20 +33,24 @@ export default function ProductPage({ params }: { params: { id: string } | Promi
       try {
         const resolvedParams = await Promise.resolve(params);
         const productId = resolvedParams.id;
-        
+
         const productResponse = await fetch(`/api/products/${productId}`);
         const productData = await productResponse.json();
-        
+
         if (productData.success) {
           setProduct(productData.data);
-          
+
           // Fetch related products from same category
-          const category = productData.data.category || 'women';
-          const relatedResponse = await fetch(`/api/products?category=${category}&limit=5`);
+          const category = productData.data.category || "women";
+          const relatedResponse = await fetch(
+            `/api/products?category=${category}&limit=5`
+          );
           const relatedData = await relatedResponse.json();
-          
+
           if (relatedData.success) {
-            const filtered = relatedData.data.filter((p: Product) => p.id !== productId);
+            const filtered = relatedData.data.filter(
+              (p: Product) => p.id !== productId
+            );
             setRelatedProducts(filtered.slice(0, 4));
           }
         } else {
@@ -157,7 +164,7 @@ export default function ProductPage({ params }: { params: { id: string } | Promi
                 ))}
               </div>
               <span className="text-sm text-muted-foreground">
-                ({product.rating || 0} reviews)
+                ({(product as any).reviewCount || 0} reviews)
               </span>
             </div>
 
@@ -205,25 +212,42 @@ export default function ProductPage({ params }: { params: { id: string } | Promi
                   </Button>
                   <Input
                     type="number"
+                    min="1"
+                    max={(product as any).stockQuantity || 999}
                     value={quantity}
-                    onChange={(e) =>
-                      setQuantity(Math.max(1, parseInt(e.target.value) || 1))
-                    }
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 1;
+                      const maxQty = (product as any).stockQuantity || 999;
+                      setQuantity(Math.max(1, Math.min(value, maxQty)));
+                    }}
                     className="w-20 text-center"
                   />
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => setQuantity(quantity + 1)}
+                    onClick={() => {
+                      const maxQty = (product as any).stockQuantity || 999;
+                      setQuantity(Math.min(maxQty, quantity + 1));
+                    }}
                   >
                     +
                   </Button>
                 </div>
+                {(product as any).stockQuantity && (
+                  <span className="text-sm text-muted-foreground">
+                    (Max: {(product as any).stockQuantity})
+                  </span>
+                )}
               </div>
             </div>
 
             <div className="flex gap-4 mb-6">
-              <Button size="lg" className="flex-1" onClick={handleAddToCart}>
+              <Button 
+                size="lg" 
+                className="flex-1" 
+                onClick={handleAddToCart}
+                disabled={!product.inStock}
+              >
                 <ShoppingCart className="h-5 w-5 mr-2" />
                 Add to Cart
               </Button>
@@ -235,7 +259,12 @@ export default function ProductPage({ params }: { params: { id: string } | Promi
                   )}
                 />
               </Button>
-              <Button size="lg" variant="secondary" className="flex-1">
+              <Button 
+                size="lg" 
+                variant="secondary" 
+                className="flex-1"
+                disabled={!product.inStock}
+              >
                 Buy Now
               </Button>
             </div>
@@ -303,27 +332,46 @@ export default function ProductPage({ params }: { params: { id: string } | Promi
           <TabsContent value="reviews" className="mt-6">
             <Card>
               <CardContent className="pt-6">
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-medium">John Doe</span>
-                      <div className="flex">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={cn(
-                              "h-4 w-4",
-                              i < 4 ? "fill-primary text-primary" : "text-muted"
-                            )}
-                          />
-                        ))}
+                {((product as any).reviews && (product as any).reviews.length > 0) ? (
+                  <div className="space-y-4">
+                    {(product as any).reviews.map((review: any, index: number) => (
+                      <div key={review.id || index}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium">
+                            {review.user?.name || "Anonymous"}
+                          </span>
+                          <div className="flex">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={cn(
+                                  "h-4 w-4",
+                                  i < (review.rating || 0)
+                                    ? "fill-primary text-primary"
+                                    : "text-muted"
+                                )}
+                              />
+                            ))}
+                          </div>
+                          {review.createdAt && (
+                            <span className="text-xs text-muted-foreground ml-auto">
+                              {new Date(review.createdAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                        {review.comment && (
+                          <p className="text-sm text-muted-foreground">
+                            {review.comment}
+                          </p>
+                        )}
                       </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Great quality product! Exceeded my expectations.
-                    </p>
+                    ))}
                   </div>
-                </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-8">
+                    No reviews yet. Be the first to review this product!
+                  </p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
