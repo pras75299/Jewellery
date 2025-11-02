@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { generateToken, setAuthCookie } from '@/lib/auth';
+import { generateToken } from '@/lib/auth';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -44,8 +45,18 @@ export async function POST(request: NextRequest) {
     // Generate token
     const token = generateToken({ userId: user.id, email: user.email, role: user.role });
 
-    // Set cookie and return response
-    const response = NextResponse.json({
+    // Set cookie
+    const cookieStore = await cookies();
+    cookieStore.set('auth-token', token, {
+      httpOnly: true,
+      path: '/',
+      sameSite: 'strict',
+      maxAge: 86400, // 24 hours
+      secure: process.env.NODE_ENV === 'production',
+    });
+
+    // Return response
+    return NextResponse.json({
       success: true,
       message: 'Login successful',
       data: {
@@ -56,10 +67,6 @@ export async function POST(request: NextRequest) {
         role: user.role,
       },
     });
-
-    response.headers.set('Set-Cookie', setAuthCookie(token));
-
-    return response;
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
