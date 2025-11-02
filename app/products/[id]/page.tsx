@@ -27,6 +27,10 @@ export default function ProductPage({
   const [quantity, setQuantity] = useState(1);
   const addToCart = useCartStore((state) => state.addItem);
   const addToWishlist = useWishlistStore((state) => state.addItem);
+  // Must call hook unconditionally - use empty string as default if product not loaded yet
+  const isInWishlist = useWishlistStore((state) => 
+    state.isInWishlist(product?.id || '')
+  );
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -90,9 +94,6 @@ export default function ProductPage({
     notFound();
   }
 
-  const isInWishlist = useWishlistStore((state) =>
-    state.isInWishlist(product.id)
-  );
   const images = product.images || [product.image];
 
   const handleAddToCart = () => {
@@ -242,9 +243,9 @@ export default function ProductPage({
             </div>
 
             <div className="flex gap-4 mb-6">
-              <Button 
-                size="lg" 
-                className="flex-1" 
+              <Button
+                size="lg"
+                className="flex-1"
                 onClick={handleAddToCart}
                 disabled={!product.inStock}
               >
@@ -259,9 +260,9 @@ export default function ProductPage({
                   )}
                 />
               </Button>
-              <Button 
-                size="lg" 
-                variant="secondary" 
+              <Button
+                size="lg"
+                variant="secondary"
                 className="flex-1"
                 disabled={!product.inStock}
               >
@@ -332,40 +333,45 @@ export default function ProductPage({
           <TabsContent value="reviews" className="mt-6">
             <Card>
               <CardContent className="pt-6">
-                {((product as any).reviews && (product as any).reviews.length > 0) ? (
+                {(product as any).reviews &&
+                (product as any).reviews.length > 0 ? (
                   <div className="space-y-4">
-                    {(product as any).reviews.map((review: any, index: number) => (
-                      <div key={review.id || index}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-medium">
-                            {review.user?.name || "Anonymous"}
-                          </span>
-                          <div className="flex">
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                className={cn(
-                                  "h-4 w-4",
-                                  i < (review.rating || 0)
-                                    ? "fill-primary text-primary"
-                                    : "text-muted"
-                                )}
-                              />
-                            ))}
-                          </div>
-                          {review.createdAt && (
-                            <span className="text-xs text-muted-foreground ml-auto">
-                              {new Date(review.createdAt).toLocaleDateString()}
+                    {(product as any).reviews.map(
+                      (review: any, index: number) => (
+                        <div key={review.id || index}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-medium">
+                              {review.user?.name || "Anonymous"}
                             </span>
+                            <div className="flex">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={cn(
+                                    "h-4 w-4",
+                                    i < (review.rating || 0)
+                                      ? "fill-primary text-primary"
+                                      : "text-muted"
+                                  )}
+                                />
+                              ))}
+                            </div>
+                            {review.createdAt && (
+                              <span className="text-xs text-muted-foreground ml-auto">
+                                {new Date(
+                                  review.createdAt
+                                ).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                          {review.comment && (
+                            <p className="text-sm text-muted-foreground">
+                              {review.comment}
+                            </p>
                           )}
                         </div>
-                        {review.comment && (
-                          <p className="text-sm text-muted-foreground">
-                            {review.comment}
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                      )
+                    )}
                   </div>
                 ) : (
                   <p className="text-muted-foreground text-center py-8">

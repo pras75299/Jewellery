@@ -13,10 +13,12 @@ export default function Header() {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const itemCount = useCartStore((state) => state.getItemCount());
   const { user, checkAuth, logout } = useAuthStore();
 
   useEffect(() => {
+    setMounted(true);
     checkAuth();
   }, [checkAuth]);
 
@@ -116,7 +118,7 @@ export default function Header() {
             <Button variant="ghost" size="icon" className="relative" asChild>
               <Link href="/cart">
                 <ShoppingCart className="h-5 w-5" />
-                {itemCount > 0 && (
+                {mounted && itemCount > 0 && (
                   <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
                     {itemCount}
                   </span>
