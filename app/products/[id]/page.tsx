@@ -13,27 +13,44 @@ import { useCartStore, useWishlistStore, Product } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import { toast } from "sonner";
+import ProductCard from "@/components/home/ProductCard";
+import Link from "next/link";
 
-export default function ProductPage({ params }: { params: { id: string } }) {
+export default function ProductPage({ params }: { params: { id: string } | Promise<{ id: string }> }) {
   const [product, setProduct] = useState<Product | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const addToCart = useCartStore((state) => state.addItem);
   const addToWishlist = useWishlistStore((state) => state.addItem);
-  
+
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const response = await fetch(`/api/products/${params.id}`);
-        const data = await response.json();
-        if (data.success) {
-          setProduct(data.data);
+        const resolvedParams = await Promise.resolve(params);
+        const productId = resolvedParams.id;
+        
+        const productResponse = await fetch(`/api/products/${productId}`);
+        const productData = await productResponse.json();
+        
+        if (productData.success) {
+          setProduct(productData.data);
+          
+          // Fetch related products from same category
+          const category = productData.data.category || 'women';
+          const relatedResponse = await fetch(`/api/products?category=${category}&limit=5`);
+          const relatedData = await relatedResponse.json();
+          
+          if (relatedData.success) {
+            const filtered = relatedData.data.filter((p: Product) => p.id !== productId);
+            setRelatedProducts(filtered.slice(0, 4));
+          }
         } else {
           notFound();
         }
       } catch (error) {
-        console.error('Failed to fetch product:', error);
+        console.error("Failed to fetch product:", error);
         notFound();
       } finally {
         setLoading(false);
@@ -41,7 +58,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     };
 
     fetchProduct();
-  }, [params.id]);
+  }, [params]);
 
   if (loading) {
     return (
@@ -66,14 +83,16 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     notFound();
   }
 
-  const isInWishlist = useWishlistStore((state) => state.isInWishlist(product.id));
+  const isInWishlist = useWishlistStore((state) =>
+    state.isInWishlist(product.id)
+  );
   const images = product.images || [product.image];
-  
+
   const handleAddToCart = () => {
     addToCart(product, quantity);
     toast.success(`${product.name} added to cart!`);
   };
-  
+
   const handleAddToWishlist = () => {
     addToWishlist(product);
     toast.success(`${product.name} added to wishlist!`);
@@ -93,6 +112,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                 fill
                 className="object-cover transition-transform duration-500 group-hover:scale-110"
                 priority
+                sizes="(max-width: 1024px) 100vw, 50vw"
               />
             </div>
             <div className="grid grid-cols-4 gap-4">
@@ -112,6 +132,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                     alt={`${product.name} ${index + 1}`}
                     fill
                     className="object-cover"
+                    sizes="(max-width: 1024px) 25vw, 12.5vw"
                   />
                 </button>
               ))}
@@ -155,9 +176,20 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             </div>
 
             <div className="flex items-center gap-2 mb-6">
-              <Check className="h-5 w-5 text-green-600" />
-              <span className="text-green-600 font-medium">In Stock</span>
-              <span className="text-sm text-muted-foreground">SKU: {product.id}</span>
+              {product.inStock ? (
+                <>
+                  <Check className="h-5 w-5 text-green-600" />
+                  <span className="text-green-600 font-medium">In Stock</span>
+                </>
+              ) : (
+                <>
+                  <span className="h-5 w-5 text-red-600">✕</span>
+                  <span className="text-red-600 font-medium">Out of Stock</span>
+                </>
+              )}
+              <span className="text-sm text-muted-foreground">
+                SKU: {product.id}
+              </span>
             </div>
 
             <div className="space-y-4 mb-6">
@@ -191,19 +223,11 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             </div>
 
             <div className="flex gap-4 mb-6">
-              <Button
-                size="lg"
-                className="flex-1"
-                onClick={handleAddToCart}
-              >
+              <Button size="lg" className="flex-1" onClick={handleAddToCart}>
                 <ShoppingCart className="h-5 w-5 mr-2" />
                 Add to Cart
               </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={handleAddToWishlist}
-              >
+              <Button size="lg" variant="outline" onClick={handleAddToWishlist}>
                 <Heart
                   className={cn(
                     "h-5 w-5",
@@ -270,8 +294,8 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               <CardContent className="pt-6">
                 <p>
                   All our jewelry comes with a comprehensive warranty covering
-                  manufacturing defects. We offer free repairs within the warranty
-                  period and lifetime maintenance service.
+                  manufacturing defects. We offer free repairs within the
+                  warranty period and lifetime maintenance service.
                 </p>
               </CardContent>
             </Card>
@@ -304,6 +328,18 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Related Products */}
+        {relatedProducts.length > 0 && (
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold mb-6">Related Products</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {relatedProducts.map((relatedProduct) => (
+                <ProductCard key={relatedProduct.id} product={relatedProduct} />
+              ))}
+            </div>
+          </section>
+        )}
       </main>
       <Footer />
     </div>
