@@ -18,7 +18,7 @@ const addressSchema = z.object({
 // PUT /api/addresses/:id - Update an address
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const user = await getAuthUser(request);
@@ -30,13 +30,14 @@ export async function PUT(
       );
     }
 
+    const { id } = await Promise.resolve(params);
     const body = await request.json();
     const addressData = addressSchema.parse(body);
 
     // Verify address belongs to user
     const existingAddress = await prisma.address.findFirst({
       where: {
-        id: params.id,
+        id,
         userId: user.id,
       },
     });
@@ -51,13 +52,13 @@ export async function PUT(
     // If setting as default, unset others
     if (addressData.isDefault) {
       await prisma.address.updateMany({
-        where: { userId: user.id, isDefault: true, id: { not: params.id } },
+        where: { userId: user.id, isDefault: true, id: { not: id } },
         data: { isDefault: false },
       });
     }
 
     const address = await prisma.address.update({
-      where: { id: params.id },
+      where: { id },
       data: addressData,
     });
 
@@ -85,7 +86,7 @@ export async function PUT(
 // DELETE /api/addresses/:id - Delete an address
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const user = await getAuthUser(request);
@@ -97,9 +98,11 @@ export async function DELETE(
       );
     }
 
+    const { id } = await Promise.resolve(params);
+
     const address = await prisma.address.findFirst({
       where: {
-        id: params.id,
+        id,
         userId: user.id,
       },
     });
@@ -112,7 +115,7 @@ export async function DELETE(
     }
 
     await prisma.address.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({
