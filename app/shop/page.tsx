@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/home/ProductCard";
-import { mockProducts } from "@/lib/data";
+import { Product } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -22,14 +21,61 @@ export default function ShopPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [priceRange, setPriceRange] = useState([0, 10000]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<string>("position");
 
-  const filteredProducts = mockProducts.filter((product) => {
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch("/api/products");
+        const data = await response.json();
+        if (data.success && data.data) {
+          setProducts(data.data);
+          // Set max price range based on actual products
+          if (data.data.length > 0) {
+            const maxPrice = Math.max(...data.data.map((p: Product) => p.price));
+            setPriceRange([0, Math.max(10000, maxPrice)]);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  // Get unique categories from products
+  const availableCategories = Array.from(
+    new Set(products.map((p) => p.category))
+  );
+
+  // Filter products
+  let filteredProducts = products.filter((product) => {
     const inPriceRange =
       product.price >= priceRange[0] && product.price <= priceRange[1];
     const inCategory =
       selectedCategories.length === 0 ||
       selectedCategories.includes(product.category);
     return inPriceRange && inCategory;
+  });
+
+  // Sort products
+  filteredProducts = [...filteredProducts].sort((a, b) => {
+    switch (sortBy) {
+      case "price-low":
+        return a.price - b.price;
+      case "price-high":
+        return b.price - a.price;
+      case "name":
+        return a.name.localeCompare(b.name);
+      default:
+        return 0; // position - keep original order
+    }
   });
 
   const toggleCategory = (category: string) => {
@@ -61,7 +107,7 @@ export default function ShopPage() {
                 <Slider
                   value={priceRange}
                   onValueChange={setPriceRange}
-                  max={10000}
+                  max={priceRange[1] > 0 ? priceRange[1] : 10000}
                   min={0}
                   step={100}
                   className="mb-4"
@@ -76,23 +122,21 @@ export default function ShopPage() {
               <div>
                 <h3 className="font-semibold mb-4">Category</h3>
                 <div className="space-y-2">
-                  {["women", "kids", "artificial", "footwear", "accessories"].map(
-                    (category) => (
-                      <div key={category} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={category}
-                          checked={selectedCategories.includes(category)}
-                          onCheckedChange={() => toggleCategory(category)}
-                        />
-                        <label
-                          htmlFor={category}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 capitalize cursor-pointer"
-                        >
-                          {category.replace("-", " ")}
-                        </label>
-                      </div>
-                    )
-                  )}
+                  {availableCategories.map((category) => (
+                    <div key={category} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={category}
+                        checked={selectedCategories.includes(category)}
+                        onCheckedChange={() => toggleCategory(category)}
+                      />
+                      <label
+                        htmlFor={category}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 capitalize cursor-pointer"
+                      >
+                        {category.replace("-", " ")}
+                      </label>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -122,7 +166,7 @@ export default function ShopPage() {
                     <List className="h-4 w-4" />
                   </Button>
                 </div>
-                <Select defaultValue="position">
+                <Select value={sortBy} onValueChange={setSortBy}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
@@ -137,17 +181,50 @@ export default function ShopPage() {
             </div>
 
             {/* Products */}
-            <div
-              className={
-                viewMode === "grid"
-                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-                  : "space-y-4"
-              }
-            >
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            {loading ? (
+              <div
+                className={
+                  viewMode === "grid"
+                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                    : "space-y-4"
+                }
+              >
+                {[...Array(6)].map((_, index) => (
+                  <div
+                    key={index}
+                    className="aspect-square bg-muted animate-pulse rounded-lg"
+                  />
+                ))}
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground text-lg">
+                  No products found matching your filters.
+                </p>
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => {
+                    setSelectedCategories([]);
+                    setPriceRange([0, priceRange[1]]);
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            ) : (
+              <div
+                className={
+                  viewMode === "grid"
+                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                    : "space-y-4"
+                }
+              >
+                {filteredProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </main>
