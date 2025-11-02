@@ -54,7 +54,28 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
-      // First, create address
+      // First, clear database cart to avoid duplicates
+      await fetch("/api/cart", {
+        method: "DELETE",
+      });
+
+      // Then, sync all cart items to database with exact quantities
+      const syncPromises = items.map((item) =>
+        fetch("/api/cart", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            productId: item.id,
+            quantity: item.quantity,
+          }),
+        })
+      );
+
+      await Promise.all(syncPromises);
+
+      // Then, create address
       const addressResponse = await fetch("/api/addresses", {
         method: "POST",
         headers: {
