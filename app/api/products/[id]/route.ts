@@ -6,11 +6,12 @@ import { z } from 'zod';
 // GET /api/products/:id - Get a single product
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
+    const { id } = await Promise.resolve(params);
     const product = await prisma.product.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         reviews: {
           include: {
@@ -51,11 +52,12 @@ export async function GET(
 // PUT /api/products/:id - Update a product (admin only)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     await requireAdmin(request);
     
+    const { id } = await Promise.resolve(params);
     const body = await request.json();
     const updateData = z.object({
       name: z.string().min(1).optional(),
@@ -71,7 +73,7 @@ export async function PUT(
     }).parse(body);
     
     const product = await prisma.product.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
     });
     
@@ -106,13 +108,14 @@ export async function PUT(
 // DELETE /api/products/:id - Delete a product (admin only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     await requireAdmin(request);
     
+    const { id } = await Promise.resolve(params);
     await prisma.product.delete({
-      where: { id: params.id },
+      where: { id },
     });
     
     return NextResponse.json({

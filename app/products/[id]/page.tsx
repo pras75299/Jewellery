@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -9,26 +9,75 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Heart, ShoppingCart, Star, Check } from "lucide-react";
-import { mockProducts } from "@/lib/data";
-import { useCartStore, useWishlistStore } from "@/lib/store";
+import { useCartStore, useWishlistStore, Product } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { notFound } from "next/navigation";
+import { toast } from "sonner";
 
 export default function ProductPage({ params }: { params: { id: string } }) {
-  const product = mockProducts.find((p) => p.id === params.id);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const addToCart = useCartStore((state) => state.addItem);
   const addToWishlist = useWishlistStore((state) => state.addItem);
-  const isInWishlist = useWishlistStore((state) =>
-    state.isInWishlist(product?.id || "")
-  );
+  
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch(`/api/products/${params.id}`);
+        const data = await response.json();
+        if (data.success) {
+          setProduct(data.data);
+        } else {
+          notFound();
+        }
+      } catch (error) {
+        console.error('Failed to fetch product:', error);
+        notFound();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [params.id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-grow container mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+            <div className="aspect-square bg-muted animate-pulse rounded-lg" />
+            <div className="space-y-4">
+              <div className="h-8 bg-muted animate-pulse rounded w-3/4" />
+              <div className="h-6 bg-muted animate-pulse rounded w-1/2" />
+              <div className="h-12 bg-muted animate-pulse rounded w-full" />
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!product) {
     notFound();
   }
 
+  const isInWishlist = useWishlistStore((state) => state.isInWishlist(product.id));
   const images = product.images || [product.image];
+  
+  const handleAddToCart = () => {
+    addToCart(product, quantity);
+    toast.success(`${product.name} added to cart!`);
+  };
+  
+  const handleAddToWishlist = () => {
+    addToWishlist(product);
+    toast.success(`${product.name} added to wishlist!`);
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -37,12 +86,12 @@ export default function ProductPage({ params }: { params: { id: string } }) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
           {/* Image Gallery */}
           <div>
-            <div className="aspect-square relative mb-4 rounded-lg overflow-hidden bg-muted">
+            <div className="aspect-square relative mb-4 rounded-lg overflow-hidden bg-muted group">
               <Image
                 src={images[selectedImage] || product.image}
                 alt={product.name}
                 fill
-                className="object-cover"
+                className="object-cover transition-transform duration-500 group-hover:scale-110"
                 priority
               />
             </div>
@@ -145,7 +194,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               <Button
                 size="lg"
                 className="flex-1"
-                onClick={() => addToCart(product, quantity)}
+                onClick={handleAddToCart}
               >
                 <ShoppingCart className="h-5 w-5 mr-2" />
                 Add to Cart
@@ -153,7 +202,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               <Button
                 size="lg"
                 variant="outline"
-                onClick={() => addToWishlist(product)}
+                onClick={handleAddToWishlist}
               >
                 <Heart
                   className={cn(
