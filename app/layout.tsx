@@ -7,7 +7,8 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Jewellery Store - Premium Jewelry Collection",
-  description: "Discover our exquisite collection of fine jewelry including rings, necklaces, earrings, and more.",
+  description:
+    "Discover our exquisite collection of fine jewelry including rings, necklaces, earrings, and more.",
 };
 
 export default function RootLayout({
@@ -19,7 +20,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         {children}
-        <Toaster position="bottom-right" richColors />
+        <Toaster position="top-right" richColors />
       </body>
     </html>
   );

@@ -28,8 +28,8 @@ export default function ProductPage({
   const addToCart = useCartStore((state) => state.addItem);
   const addToWishlist = useWishlistStore((state) => state.addItem);
   // Must call hook unconditionally - use empty string as default if product not loaded yet
-  const isInWishlist = useWishlistStore((state) => 
-    state.isInWishlist(product?.id || '')
+  const isInWishlist = useWishlistStore((state) =>
+    state.isInWishlist(product?.id || "")
   );
 
   useEffect(() => {
