@@ -10,7 +10,7 @@ const mockIsInWishlist = jest.fn(() => false);
 jest.mock("@/lib/store", () => {
   const mockAddToCartFn = jest.fn();
   const mockAddToWishlistFn = jest.fn();
-  const mockIsInWishlistFn = jest.fn(() => false);
+  const mockIsInWishlistFn = jest.fn((_id: string) => false);
 
   return {
     useCartStore: jest.fn((selector) => {
@@ -22,7 +22,7 @@ jest.mock("@/lib/store", () => {
     useWishlistStore: jest.fn((selector) => {
       const state = {
         addItem: mockAddToWishlistFn,
-        isInWishlist: (id: string) => mockIsInWishlistFn(id),
+        isInWishlist: mockIsInWishlistFn,
       };
       return typeof selector === "function" ? selector(state) : state;
     }),
