@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Search, Heart, ShoppingCart, Menu, X, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import Navigation from "./Navigation";
 import { useCartStore, useAuthStore } from "@/lib/store";
 
 export default function Header() {
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const itemCount = useCartStore((state) => state.getItemCount());
@@ -17,6 +19,12 @@ export default function Header() {
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+    router.refresh();
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -38,7 +46,7 @@ export default function Header() {
                   <Link href="/account" className="text-muted-foreground hover:text-primary">
                     My Account
                   </Link>
-                  <button onClick={logout} className="text-muted-foreground hover:text-primary">
+                  <button onClick={handleLogout} className="text-muted-foreground hover:text-primary">
                     Logout
                   </button>
                 </>
