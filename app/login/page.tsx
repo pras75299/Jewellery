@@ -15,9 +15,11 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { useAuthStore } from "@/lib/store";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { checkAuth } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -39,9 +41,14 @@ export default function LoginPage() {
       });
 
       const data = await response.json();
-      console.log("Login response:", { ok: response.ok, success: data.success });
+      console.log("Login response:", {
+        ok: response.ok,
+        success: data.success,
+      });
 
       if (response.ok && data.success) {
+        // Update auth state
+        await checkAuth();
         // Redirect to home or account page
         router.push("/");
         router.refresh();

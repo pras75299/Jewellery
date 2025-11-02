@@ -1,17 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Heart, ShoppingCart, Menu, X, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Navigation from "./Navigation";
-import { useCartStore } from "@/lib/store";
+import { useCartStore, useAuthStore } from "@/lib/store";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const itemCount = useCartStore((state) => state.getItemCount());
+  const { user, checkAuth, logout } = useAuthStore();
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -27,12 +32,26 @@ export default function Header() {
               <Link href="/services/repair" className="text-muted-foreground hover:text-primary">
                 Repair Service
               </Link>
-              <Link href="/login" className="text-muted-foreground hover:text-primary">
-                My Account
-              </Link>
-              <Link href="/register" className="text-muted-foreground hover:text-primary">
-                Create Account
-              </Link>
+              {user ? (
+                <>
+                  <span className="text-muted-foreground">Welcome, {user.name || user.email}</span>
+                  <Link href="/account" className="text-muted-foreground hover:text-primary">
+                    My Account
+                  </Link>
+                  <button onClick={logout} className="text-muted-foreground hover:text-primary">
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link href="/login" className="text-muted-foreground hover:text-primary">
+                    My Account
+                  </Link>
+                  <Link href="/register" className="text-muted-foreground hover:text-primary">
+                    Create Account
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -98,7 +117,7 @@ export default function Header() {
             </Button>
 
             <Button variant="ghost" size="icon" asChild>
-              <Link href="/login">
+              <Link href={user ? "/account" : "/login"}>
                 <User className="h-5 w-5" />
               </Link>
             </Button>

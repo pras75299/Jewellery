@@ -15,9 +15,11 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { useAuthStore } from "@/lib/store";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { checkAuth } = useAuthStore();
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -82,6 +84,8 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (response.ok && data.success) {
+        // Update auth state
+        await checkAuth();
         // Redirect to home or account page
         router.push("/");
         router.refresh();

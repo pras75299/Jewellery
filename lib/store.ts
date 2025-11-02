@@ -35,6 +35,21 @@ interface WishlistStore {
   isInWishlist: (productId: string) => boolean;
 }
 
+export interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  phone: string | null;
+  role: string;
+}
+
+interface AuthStore {
+  user: User | null;
+  setUser: (user: User | null) => void;
+  checkAuth: () => Promise<void>;
+  logout: () => void;
+}
+
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
@@ -115,3 +130,34 @@ export const useWishlistStore = create<WishlistStore>()(
     }
   )
 );
+
+export const useAuthStore = create<AuthStore>()((set) => ({
+  user: null,
+  setUser: (user) => set({ user }),
+  checkAuth: async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          set({ user: data.data });
+        } else {
+          set({ user: null });
+        }
+      } else {
+        set({ user: null });
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      set({ user: null });
+    }
+  },
+  logout: async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+    set({ user: null });
+  },
+}));
