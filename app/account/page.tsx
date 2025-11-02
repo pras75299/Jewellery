@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -9,9 +10,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, ShoppingBag, Heart, MapPin, CreditCard } from "lucide-react";
+import { useAuthStore } from "@/lib/store";
 
 export default function AccountPage() {
+  const router = useRouter();
+  const { user, checkAuth } = useAuthStore();
   const [activeTab, setActiveTab] = useState("profile");
+
+  useEffect(() => {
+    checkAuth();
+    if (!user) {
+      router.push("/login");
+    }
+  }, [checkAuth, user, router]);
+
+  if (!user) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -40,20 +55,35 @@ export default function AccountPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" defaultValue="John" />
+                    <Input 
+                      id="firstName" 
+                      defaultValue={user?.name?.split(' ')[0] || ''} 
+                    />
                   </div>
                   <div>
                     <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" defaultValue="Doe" />
+                    <Input 
+                      id="lastName" 
+                      defaultValue={user?.name?.split(' ').slice(1).join(' ') || ''} 
+                    />
                   </div>
                 </div>
                 <div>
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue="john@example.com" />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    defaultValue={user?.email || ''} 
+                    disabled
+                  />
                 </div>
                 <div>
                   <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" type="tel" defaultValue="+91 1234567890" />
+                  <Input 
+                    id="phone" 
+                    type="tel" 
+                    defaultValue={user?.phone || ''} 
+                  />
                 </div>
                 <Button>Save Changes</Button>
               </CardContent>
