@@ -86,6 +86,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             <Button
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
               onClick={handleAddToCart}
+              disabled={!product.inStock}
             >
               <ShoppingCart className="h-4 w-4 mr-2" />
               Add to Cart
