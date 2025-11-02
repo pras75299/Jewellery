@@ -29,6 +29,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      console.log("Attempting login with:", email);
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -38,6 +39,7 @@ export default function LoginPage() {
       });
 
       const data = await response.json();
+      console.log("Login response:", { ok: response.ok, success: data.success });
 
       if (response.ok && data.success) {
         // Redirect to home or account page
