@@ -13,6 +13,11 @@ export function CartWishlistSync() {
   const prevUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // Only run in browser (client-side) - skip during SSR/prerendering
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     // Sync cart and wishlist when user logs in
     // Only sync if user changed (not just reference change) - fixes Issue #7
     if (user && hasSyncedRef.current !== user.id && prevUserIdRef.current !== user.id) {
@@ -27,7 +32,7 @@ export function CartWishlistSync() {
       hasSyncedRef.current = null;
       prevUserIdRef.current = null;
     }
-  }, [user?.id]); // Only depend on user.id, not functions or full user object
+  }, [user?.id, syncCart, syncWishlist]); // Include syncCart and syncWishlist in deps
 
   return null; // This component doesn't render anything
 }
