@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -8,13 +9,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
 import Link from "next/link";
 import { Trash2, Plus, Minus } from "lucide-react";
-import { useCartStore } from "@/lib/store";
+import { useCartStore, useAuthStore } from "@/lib/store";
 
 export default function CartPage() {
   const items = useCartStore((state) => state.items);
+  const isLoading = useCartStore((state) => state.isLoading);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
   const getTotal = useCartStore((state) => state.getTotal);
+  const syncCart = useCartStore((state) => state.syncFromBackend);
+  const user = useAuthStore((state) => state.user);
+
+  // Sync cart from backend when page loads (if user is logged in)
+  useEffect(() => {
+    if (user) {
+      syncCart();
+    }
+  }, [user, syncCart]);
 
   const subtotal = getTotal();
   const shipping = subtotal > 499 ? 0 : 50;
@@ -26,7 +37,11 @@ export default function CartPage() {
       <main className="flex-grow container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">Shopping Cart</h1>
 
-        {items.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-16">
+            <p className="text-xl text-muted-foreground">Loading cart...</p>
+          </div>
+        ) : items.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-xl text-muted-foreground mb-4">
               Your cart is empty

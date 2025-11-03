@@ -1,0 +1,31 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { useAuthStore } from "@/lib/store";
+import { useCartStore } from "@/lib/store";
+import { useWishlistStore } from "@/lib/store";
+
+export function CartWishlistSync() {
+  const user = useAuthStore((state) => state.user);
+  const syncCart = useCartStore((state) => state.syncFromBackend);
+  const syncWishlist = useWishlistStore((state) => state.syncFromBackend);
+  const hasSyncedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Sync cart and wishlist when user logs in
+    // Only sync once per user ID to prevent multiple concurrent syncs
+    if (user && hasSyncedRef.current !== user.id) {
+      hasSyncedRef.current = user.id;
+      // Sync both in parallel but await them to prevent race conditions
+      Promise.all([syncCart(), syncWishlist()]).catch((error) => {
+        console.error('Failed to sync cart/wishlist:', error);
+      });
+    } else if (!user) {
+      // Reset when user logs out
+      hasSyncedRef.current = null;
+    }
+  }, [user, syncCart, syncWishlist]);
+
+  return null; // This component doesn't render anything
+}
+

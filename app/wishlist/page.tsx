@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -7,12 +8,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import Image from "next/image";
 import Link from "next/link";
 import { Trash2, ShoppingCart, Heart } from "lucide-react";
-import { useWishlistStore, useCartStore } from "@/lib/store";
+import { useWishlistStore, useCartStore, useAuthStore } from "@/lib/store";
 
 export default function WishlistPage() {
   const items = useWishlistStore((state) => state.items);
+  const isLoading = useWishlistStore((state) => state.isLoading);
   const removeItem = useWishlistStore((state) => state.removeItem);
   const addToCart = useCartStore((state) => state.addItem);
+  const syncWishlist = useWishlistStore((state) => state.syncFromBackend);
+  const user = useAuthStore((state) => state.user);
+
+  // Sync wishlist from backend when page loads (if user is logged in)
+  useEffect(() => {
+    if (user) {
+      syncWishlist();
+    }
+  }, [user, syncWishlist]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -20,7 +31,11 @@ export default function WishlistPage() {
       <main className="flex-grow container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">My Wishlist</h1>
 
-        {items.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-16">
+            <p className="text-xl text-muted-foreground">Loading wishlist...</p>
+          </div>
+        ) : items.length === 0 ? (
           <div className="text-center py-16">
             <Heart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
             <p className="text-xl text-muted-foreground mb-4">

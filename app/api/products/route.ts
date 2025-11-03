@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth';
+import { logger } from '@/lib/logger';
+import { validateCsrf } from '@/lib/csrf';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { z } from 'zod';
 
 // Enable caching for GET requests - revalidate every 60 seconds
@@ -22,6 +25,9 @@ const createProductSchema = z.object({
 // GET /api/products - Get all products with optional filters
 export async function GET(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    logger.request('GET', '/api/products', ip);
+
     const { searchParams } = new URL(request.url);
     
     // Get query parameters
@@ -123,11 +129,30 @@ export async function GET(request: NextRequest) {
 // POST /api/products - Create a new product (admin only)
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    
     // Require admin authentication
-    await requireAdmin(request);
+    const user = await requireAdmin(request);
+    
+    // Validate CSRF token
+    const csrfValid = await validateCsrf(request);
+    if (!csrfValid) {
+      logger.security('CSRF validation failed', { path: '/api/products', method: 'POST', ip });
+      return NextResponse.json(
+        { success: false, error: 'CSRF token validation failed' },
+        { status: 403 }
+      );
+    }
+
+    logger.request('POST', '/api/products', ip, user.id);
     
     const body = await request.json();
     const productData = createProductSchema.parse(body);
+    
+    // Sanitize HTML in description
+    if (productData.description) {
+      productData.description = sanitizeHtml(productData.description);
+    }
     
     // Check if slug already exists
     const existing = await prisma.product.findUnique({

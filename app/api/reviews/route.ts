@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
+import { validateCsrf } from '@/lib/csrf';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { z } from 'zod';
 
 const reviewSchema = z.object({
@@ -62,17 +65,36 @@ export async function GET(request: NextRequest) {
 // POST /api/reviews - Create or update a review
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
     const user = await getAuthUser(request);
 
     if (!user) {
+      logger.security('Unauthorized review attempt', { path: '/api/reviews', method: 'POST', ip });
       return NextResponse.json(
         { success: false, error: 'Not authenticated' },
         { status: 401 }
       );
     }
 
+    // Validate CSRF token
+    const csrfValid = await validateCsrf(request);
+    if (!csrfValid) {
+      logger.security('CSRF validation failed', { path: '/api/reviews', method: 'POST', ip, userId: user.id });
+      return NextResponse.json(
+        { success: false, error: 'CSRF token validation failed' },
+        { status: 403 }
+      );
+    }
+
+    logger.request('POST', '/api/reviews', ip, user.id);
+
     const body = await request.json();
     const reviewData = reviewSchema.parse(body);
+    
+    // Sanitize HTML in comment
+    if (reviewData.comment) {
+      reviewData.comment = sanitizeHtml(reviewData.comment);
+    }
 
     // Check if product exists
     const product = await prisma.product.findUnique({

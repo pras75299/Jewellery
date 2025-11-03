@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { generateToken } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -12,10 +13,13 @@ const loginSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
     const body = await request.json();
     
     // Validate input
     const validatedData = loginSchema.parse(body);
+    
+    logger.request('POST', '/api/auth/login', ip);
     
     // Find user
     const user = await prisma.user.findUnique({
@@ -23,6 +27,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
+      logger.security('Failed login attempt - user not found', { email: validatedData.email, ip });
       return NextResponse.json(
         { success: false, error: 'Invalid email or password' },
         { status: 401 }
@@ -36,11 +41,14 @@ export async function POST(request: NextRequest) {
     );
 
     if (!isValidPassword) {
+      logger.security('Failed login attempt - invalid password', { email: validatedData.email, userId: user.id, ip });
       return NextResponse.json(
         { success: false, error: 'Invalid email or password' },
         { status: 401 }
       );
     }
+
+    logger.info('User logged in successfully', { userId: user.id, email: user.email, ip });
 
     // Generate token
     const token = generateToken({ userId: user.id, email: user.email, role: user.role });

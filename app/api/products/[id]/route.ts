@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth';
+import { logger } from '@/lib/logger';
+import { validateCsrf } from '@/lib/csrf';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { z } from 'zod';
 
 // Enable caching for GET requests - revalidate every 60 seconds
@@ -86,9 +89,22 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    await requireAdmin(request);
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    const user = await requireAdmin(request);
     
+    // Validate CSRF token
+    const csrfValid = await validateCsrf(request);
+    if (!csrfValid) {
+      logger.security('CSRF validation failed', { path: `/api/products/[id]`, method: 'PUT', ip });
+      return NextResponse.json(
+        { success: false, error: 'CSRF token validation failed' },
+        { status: 403 }
+      );
+    }
+
     const { id } = await Promise.resolve(params);
+    logger.request('PUT', `/api/products/${id}`, ip, user.id);
+    
     const body = await request.json();
     const updateData = z.object({
       name: z.string().min(1).optional(),
@@ -102,6 +118,11 @@ export async function PUT(
       inStock: z.boolean().optional(),
       stockQuantity: z.number().int().optional(),
     }).parse(body);
+    
+    // Sanitize HTML in description
+    if (updateData.description) {
+      updateData.description = sanitizeHtml(updateData.description);
+    }
     
     const product = await prisma.product.update({
       where: { id },
@@ -142,9 +163,22 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    await requireAdmin(request);
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    const user = await requireAdmin(request);
     
+    // Validate CSRF token
+    const csrfValid = await validateCsrf(request);
+    if (!csrfValid) {
+      logger.security('CSRF validation failed', { path: `/api/products/[id]`, method: 'DELETE', ip });
+      return NextResponse.json(
+        { success: false, error: 'CSRF token validation failed' },
+        { status: 403 }
+      );
+    }
+
     const { id } = await Promise.resolve(params);
+    logger.request('DELETE', `/api/products/${id}`, ip, user.id);
+    
     await prisma.product.delete({
       where: { id },
     });
