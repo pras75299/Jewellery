@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
-
 export default function GlobalError({
   error,
   reset,
@@ -9,11 +7,7 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    // Log the error to an error reporting service
-    console.error("Global error:", error);
-  }, [error]);
-
+  // Keep this component minimal and free of hooks to avoid build-time issues
   return (
     <html lang="en">
       <body>
@@ -23,13 +17,19 @@ export default function GlobalError({
             <p className="text-muted-foreground">
               An unexpected error occurred. Please try again.
             </p>
-            {error.digest && (
-              <p className="text-sm text-muted-foreground">
-                Error ID: {error.digest}
-              </p>
-            )}
+            {error.digest ? (
+              <p className="text-sm text-muted-foreground">Error ID: {error.digest}</p>
+            ) : null}
             <button
-              onClick={reset}
+              onClick={() => {
+                try {
+                  reset();
+                } catch {
+                  if (typeof window !== "undefined") {
+                    window.location.reload();
+                  }
+                }
+              }}
               className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
             >
               Try again
