@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -10,19 +11,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Heart, ShoppingCart, Star, Check } from "lucide-react";
 import { useCartStore, useWishlistStore, Product } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { notFound } from "next/navigation";
 import { toast } from "sonner";
 import ProductCard from "@/components/home/ProductCard";
 import Link from "next/link";
+import { dedupedFetch } from "@/lib/fetch";
+import { ImageZoom } from "@/components/ui/image-zoom";
 
 export default function ProductPage({
   params,
 }: {
   params: { id: string } | Promise<{ id: string }>;
 }) {
+  const router = useRouter();
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const addToCart = useCartStore((state) => state.addItem);
@@ -31,25 +35,65 @@ export default function ProductPage({
   const isInWishlist = useWishlistStore((state) =>
     state.isInWishlist(product?.id || "")
   );
+  const hasFetched = useRef<string | null>(null);
+  const currentProductIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // Immediately reset states when params change (synchronous)
+    // This prevents 404 flash by ensuring loading state is set before async operations
+    setLoading(true);
+    setNotFound(false);
+
     const fetchProduct = async () => {
       try {
-        const resolvedParams = await Promise.resolve(params);
-        const productId = resolvedParams.id;
+        // Handle params - could be a Promise or object
+        let productId: string;
+        if (params instanceof Promise) {
+          const resolvedParams = await params;
+          productId = resolvedParams.id;
+        } else {
+          productId = params.id;
+        }
 
-        const productResponse = await fetch(`/api/products/${productId}`);
-        const productData = await productResponse.json();
+        // If navigating to a different product, clear old data
+        if (
+          currentProductIdRef.current !== null &&
+          currentProductIdRef.current !== productId
+        ) {
+          setProduct(null);
+          setRelatedProducts([]);
+          hasFetched.current = null;
+          setLoading(true); // Ensure loading state when switching products
+        }
 
-        if (productData.success) {
+        // Validate productId
+        if (!productId) {
+          setNotFound(true);
+          setLoading(false);
+          currentProductIdRef.current = productId || null;
+          return;
+        }
+
+        // Track current product and proceed with fetch
+        // dedupedFetch will handle request deduplication at the network level
+        if (hasFetched.current !== productId) {
+          hasFetched.current = productId;
+        }
+        currentProductIdRef.current = productId;
+
+        const productData = await dedupedFetch<{ success: boolean; data: any }>(
+          `/api/products/${encodeURIComponent(productId)}`
+        );
+
+        if (productData.success && productData.data) {
           setProduct(productData.data);
 
           // Fetch related products from same category
           const category = productData.data.category || "women";
-          const relatedResponse = await fetch(
-            `/api/products?category=${category}&limit=5`
-          );
-          const relatedData = await relatedResponse.json();
+          const relatedData = await dedupedFetch<{
+            success: boolean;
+            data: Product[];
+          }>(`/api/products?category=${encodeURIComponent(category)}&limit=5`);
 
           if (relatedData.success) {
             const filtered = relatedData.data.filter(
@@ -58,11 +102,11 @@ export default function ProductPage({
             setRelatedProducts(filtered.slice(0, 4));
           }
         } else {
-          notFound();
+          setNotFound(true);
         }
       } catch (error) {
         console.error("Failed to fetch product:", error);
-        notFound();
+        setNotFound(true);
       } finally {
         setLoading(false);
       }
@@ -71,6 +115,7 @@ export default function ProductPage({
     fetchProduct();
   }, [params]);
 
+  // Show loading state while fetching
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -90,8 +135,29 @@ export default function ProductPage({
     );
   }
 
+  // Show 404 only after loading completes and product doesn't exist
+  if (!loading && (notFound || !product)) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-grow container mx-auto px-4 py-16 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-6xl font-bold mb-4">404</h1>
+            <h2 className="text-2xl font-semibold mb-4">Product Not Found</h2>
+            <p className="text-muted-foreground mb-8">
+              The product you're looking for doesn't exist.
+            </p>
+            <Button onClick={() => router.push("/shop")}>Back to Shop</Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // TypeScript guard: product should exist at this point
   if (!product) {
-    notFound();
+    return null; // Should never reach here, but TypeScript needs this
   }
 
   const images = product.images || [product.image];
@@ -112,15 +178,13 @@ export default function ProductPage({
       <main className="flex-grow container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
           {/* Image Gallery */}
-          <div>
-            <div className="aspect-square relative mb-4 rounded-lg overflow-hidden bg-muted group">
-              <Image
+          <div className="relative z-0">
+            <div className="mb-4">
+              <ImageZoom
                 src={images[selectedImage] || product.image}
                 alt={product.name}
-                fill
-                className="object-cover transition-transform duration-500 group-hover:scale-110"
+                zoomLevel={2.5}
                 priority
-                sizes="(max-width: 1024px) 100vw, 50vw"
               />
             </div>
             <div className="grid grid-cols-4 gap-4">
@@ -245,7 +309,7 @@ export default function ProductPage({
             <div className="flex gap-4 mb-6">
               <Button
                 size="lg"
-                className="flex-1"
+                className="flex"
                 onClick={handleAddToCart}
                 disabled={!product.inStock}
               >
@@ -259,14 +323,6 @@ export default function ProductPage({
                     isInWishlist && "fill-primary text-primary"
                   )}
                 />
-              </Button>
-              <Button
-                size="lg"
-                variant="secondary"
-                className="flex-1"
-                disabled={!product.inStock}
-              >
-                Buy Now
               </Button>
             </div>
 

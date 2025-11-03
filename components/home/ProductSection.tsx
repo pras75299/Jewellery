@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import ProductCard from "./ProductCard";
 import { Product } from "@/lib/store";
+import { dedupedFetch } from "@/lib/fetch";
 
 interface ProductSectionProps {
   title: string;
@@ -16,12 +17,16 @@ export default function ProductSection({
 }: ProductSectionProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasFetched = useRef(false);
 
   useEffect(() => {
+    // Prevent duplicate calls in React Strict Mode
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
     const fetchProducts = async () => {
       try {
-        const response = await fetch('/api/products?limit=8');
-        const data = await response.json();
+        const data = await dedupedFetch<{ success: boolean; data: Product[] }>('/api/products?limit=8');
         if (data.success) {
           setProducts(data.data);
         }

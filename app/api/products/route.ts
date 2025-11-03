@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth';
 import { z } from 'zod';
 
+// Enable caching for GET requests - revalidate every 60 seconds
+export const revalidate = 60;
+
 const createProductSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
@@ -93,7 +96,7 @@ export async function GET(request: NextRequest) {
       prisma.product.count({ where }),
     ]);
     
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: products,
       pagination: {
@@ -103,6 +106,11 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(total / limit),
       },
     });
+
+    // Add cache headers for GET requests (60 seconds cache, allow stale for 120 seconds)
+    response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+    
+    return response;
   } catch (error) {
     console.error('Error fetching products:', error);
     return NextResponse.json(

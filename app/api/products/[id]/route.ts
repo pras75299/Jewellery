@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth';
 import { z } from 'zod';
 
+// Enable caching for GET requests - revalidate every 60 seconds
+export const revalidate = 60;
+
 // GET /api/products/:id - Get a single product
 export async function GET(
   request: NextRequest,
@@ -10,24 +13,44 @@ export async function GET(
 ) {
   try {
     const { id } = await Promise.resolve(params);
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: {
-        reviews: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
+    
+    // Optimize query: fetch product and reviews separately to reduce nested query overhead
+    const [product, reviews] = await Promise.all([
+      prisma.product.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          description: true,
+          price: true,
+          originalPrice: true,
+          image: true,
+          images: true,
+          category: true,
+          inStock: true,
+          stockQuantity: true,
+          rating: true,
+          reviewCount: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      prisma.review.findMany({
+        where: { productId: id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
             },
           },
-          orderBy: { createdAt: 'desc' },
-          take: 10,
         },
-      },
-    });
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+    ]);
     
     if (!product) {
       return NextResponse.json(
@@ -36,10 +59,18 @@ export async function GET(
       );
     }
     
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
-      data: product,
+      data: {
+        ...product,
+        reviews,
+      },
     });
+
+    // Add cache headers (60 seconds cache, allow stale for 120 seconds)
+    response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+    
+    return response;
   } catch (error) {
     console.error('Error fetching product:', error);
     return NextResponse.json(

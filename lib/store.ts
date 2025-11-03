@@ -133,35 +133,44 @@ export const useWishlistStore = create<WishlistStore>()(
 
 export const useAuthStore = create<AuthStore>()((set, get) => {
   let checkingAuth = false; // Flag to prevent concurrent calls
+  let authPromise: Promise<void> | null = null; // Store the promise to share across concurrent calls
 
   return {
     user: null,
     setUser: (user) => set({ user }),
     checkAuth: async () => {
-      // Prevent concurrent calls
-      if (checkingAuth) {
-        return;
+      // Prevent concurrent calls - return existing promise if one is in flight
+      if (checkingAuth && authPromise) {
+        return authPromise;
       }
 
       checkingAuth = true;
-      try {
-        const response = await fetch('/api/auth/me');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data) {
-            set({ user: data.data });
+      
+      authPromise = (async () => {
+        try {
+          const response = await fetch('/api/auth/me', {
+            cache: 'no-store', // Auth endpoints should never be cached
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.data) {
+              set({ user: data.data });
+            } else {
+              set({ user: null });
+            }
           } else {
             set({ user: null });
           }
-        } else {
+        } catch (error) {
+          console.error('Auth check failed:', error);
           set({ user: null });
+        } finally {
+          checkingAuth = false;
+          authPromise = null;
         }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        set({ user: null });
-      } finally {
-        checkingAuth = false;
-      }
+      })();
+
+      return authPromise;
     },
     logout: async () => {
       try {
