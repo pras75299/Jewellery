@@ -108,6 +108,22 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Stock quantity validation (fixes Issue #13)
+    if (product.stockQuantity !== null && product.stockQuantity !== undefined) {
+      const currentCartQuantity = existingItem?.quantity || 0;
+      const newTotalQuantity = currentCartQuantity + quantity;
+      
+      if (newTotalQuantity > product.stockQuantity) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: `Only ${product.stockQuantity} items available. You already have ${currentCartQuantity} in cart.` 
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     let cartItem;
     if (existingItem) {
       // Update quantity

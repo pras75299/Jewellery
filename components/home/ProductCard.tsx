@@ -27,9 +27,13 @@ export default function ProductCard({ product }: ProductCardProps) {
     setTimeout(() => setWishlistClicked(false), 500);
   };
 
-  const handleAddToCart = () => {
-    addToCart(product);
-    toast.success(`${product.name} added to cart!`);
+  const handleAddToCart = async () => {
+    try {
+      await addToCart(product);
+      toast.success(`${product.name} added to cart!`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to add to cart');
+    }
   };
 
   return (

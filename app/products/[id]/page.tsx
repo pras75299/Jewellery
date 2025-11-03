@@ -162,9 +162,13 @@ export default function ProductPage({
 
   const images = product.images || [product.image];
 
-  const handleAddToCart = () => {
-    addToCart(product, quantity);
-    toast.success(`${product.name} added to cart!`);
+  const handleAddToCart = async () => {
+    try {
+      await addToCart(product, quantity);
+      toast.success(`${product.name} added to cart!`);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add to cart");
+    }
   };
 
   const handleAddToWishlist = () => {

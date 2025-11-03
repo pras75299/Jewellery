@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { toast } from 'sonner';
 
 export interface Product {
   id: string;
@@ -12,10 +13,12 @@ export interface Product {
   category: string;
   rating?: number;
   inStock?: boolean;
+  stockQuantity?: number | null; // Available stock quantity
 }
 
 export interface CartItem extends Product {
   quantity: number;
+  cartItemId?: string; // Backend cart item ID for efficient updates/deletes
 }
 
 interface CartStore {
@@ -83,9 +86,11 @@ export const useCartStore = create<CartStore>()(
             const data = await response.json();
             if (data.success && data.data) {
               // Convert backend cart items to CartItem format
+              // Store cartItemId for efficient updates/deletes (fixes Issue #1)
               const backendItems: CartItem[] = data.data.items.map((item: any) => ({
                 ...item.product,
                 quantity: item.quantity,
+                cartItemId: item.id, // Store backend cart item ID
               }));
               
               // Get current local items
@@ -135,6 +140,7 @@ export const useCartStore = create<CartStore>()(
           }
         } catch (error) {
           console.error('Failed to sync cart from backend:', error);
+          toast.error('Failed to sync cart. Some items may not be saved.');
           // Keep local storage cart on error
         } finally {
           set({ isLoading: false });
@@ -142,6 +148,24 @@ export const useCartStore = create<CartStore>()(
         }
       },
       addItem: async (product, quantity = 1) => {
+        // Stock validation (fixes Issue #5)
+        if (product.inStock === false) {
+          throw new Error('Product is out of stock');
+        }
+        
+        if (product.stockQuantity !== undefined && product.stockQuantity !== null) {
+          const items = get().items;
+          const existingItem = items.find((item) => item.id === product.id);
+          const currentCartQuantity = existingItem?.quantity || 0;
+          const newTotalQuantity = currentCartQuantity + quantity;
+          
+          if (newTotalQuantity > product.stockQuantity) {
+            throw new Error(
+              `Only ${product.stockQuantity} items available. You already have ${currentCartQuantity} in cart.`
+            );
+          }
+        }
+        
         const items = get().items;
         const existingItem = items.find((item) => item.id === product.id);
         const oldQuantity = existingItem?.quantity || 0;
@@ -170,7 +194,20 @@ export const useCartStore = create<CartStore>()(
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ productId: product.id, quantity }),
             });
-            if (!response.ok) {
+            if (response.ok) {
+              // Store cartItemId from response for efficient future updates/deletes
+              const data = await response.json();
+              if (data.success && data.data?.id) {
+                // Update local state with cartItemId
+                set({
+                  items: get().items.map((item) =>
+                    item.id === product.id
+                      ? { ...item, cartItemId: data.data.id }
+                      : item
+                  ),
+                });
+              }
+            } else {
               // Revert local change on error
               const data = await response.json();
               console.error('Failed to add to cart:', data.error);
@@ -189,6 +226,7 @@ export const useCartStore = create<CartStore>()(
             }
           } catch (error) {
             console.error('Failed to sync cart to backend:', error);
+            toast.warning('Cart updated locally but may not sync to server');
             // Keep local change even if sync fails
           }
         }
@@ -202,28 +240,25 @@ export const useCartStore = create<CartStore>()(
           items: items.filter((item) => item.id !== productId),
         });
 
-        // Sync to backend if logged in
+        // Sync to backend if logged in (using stored cartItemId - fixes Issue #1)
         const authStore = useAuthStore.getState();
-        if (authStore.user && itemToRemove) {
+        if (authStore.user && itemToRemove?.cartItemId) {
           try {
-            // First, try to get the cart item ID from backend
-            const cartResponse = await fetch('/api/cart');
-            if (cartResponse.ok) {
-              const cartData = await cartResponse.json();
-              if (cartData.success && cartData.data) {
-                const backendItem = cartData.data.items.find(
-                  (item: any) => item.product.id === productId
-                );
-                if (backendItem) {
-                  await fetch(`/api/cart/${backendItem.id}`, {
-                    method: 'DELETE',
-                  });
-                }
-              }
+            // Use stored cartItemId directly - no need for GET request
+            const response = await fetch(`/api/cart/${itemToRemove.cartItemId}`, {
+              method: 'DELETE',
+            });
+            if (!response.ok) {
+              // Revert on error
+              set({ items: [...get().items, itemToRemove] });
+              const data = await response.json();
+              console.error('Failed to remove from cart:', data.error);
             }
           } catch (error) {
+            // Revert on network error
+            set({ items: [...get().items, itemToRemove] });
             console.error('Failed to sync cart removal to backend:', error);
-            // Keep local change even if sync fails
+            toast.error('Failed to remove item. Please try again.');
           }
         }
       },
@@ -235,7 +270,21 @@ export const useCartStore = create<CartStore>()(
 
         const items = get().items;
         const existingItem = items.find((item) => item.id === productId);
-        const oldQuantity = existingItem?.quantity || 0;
+        
+        if (!existingItem) {
+          throw new Error('Item not found in cart');
+        }
+        
+        // Stock validation (fixes Issue #5)
+        if (existingItem.stockQuantity !== undefined && existingItem.stockQuantity !== null) {
+          if (quantity > existingItem.stockQuantity) {
+            throw new Error(
+              `Only ${existingItem.stockQuantity} items available.`
+            );
+          }
+        }
+        
+        const oldQuantity = existingItem.quantity;
 
         // Update local state immediately
         set({
@@ -244,40 +293,39 @@ export const useCartStore = create<CartStore>()(
           ),
         });
 
-        // Sync to backend if logged in
+        // Sync to backend if logged in (using stored cartItemId - fixes Issue #1)
         const authStore = useAuthStore.getState();
-        if (authStore.user) {
+        if (authStore.user && existingItem?.cartItemId) {
           try {
-            // First, try to get the cart item ID from backend
-            const cartResponse = await fetch('/api/cart');
-            if (cartResponse.ok) {
-              const cartData = await cartResponse.json();
-              if (cartData.success && cartData.data) {
-                const backendItem = cartData.data.items.find(
-                  (item: any) => item.product.id === productId
-                );
-                if (backendItem) {
-                  const response = await fetch(`/api/cart/${backendItem.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ quantity }),
-                  });
-                  if (!response.ok) {
-                    // Revert local change on error
-                    set({
-                      items: items.map((item) =>
-                        item.id === productId
-                          ? { ...item, quantity: oldQuantity }
-                          : item
-                      ),
-                    });
-                  }
-                }
-              }
+            // Use stored cartItemId directly - no need for GET request
+            const response = await fetch(`/api/cart/${existingItem.cartItemId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ quantity }),
+            });
+            if (!response.ok) {
+              // Revert local change on error
+              set({
+                items: items.map((item) =>
+                  item.id === productId
+                    ? { ...item, quantity: oldQuantity }
+                    : item
+                ),
+              });
+              const data = await response.json();
+              console.error('Failed to update cart quantity:', data.error);
             }
           } catch (error) {
+            // Revert on network error
+            set({
+              items: items.map((item) =>
+                item.id === productId
+                  ? { ...item, quantity: oldQuantity }
+                  : item
+              ),
+            });
             console.error('Failed to sync cart update to backend:', error);
-            // Keep local change even if sync fails
+            toast.error('Failed to update quantity. Please try again.');
           }
         }
       },
@@ -294,6 +342,7 @@ export const useCartStore = create<CartStore>()(
             });
           } catch (error) {
             console.error('Failed to sync cart clear to backend:', error);
+            toast.warning('Cart cleared locally but may not sync to server');
             // Keep local change even if sync fails
           }
         }
@@ -394,6 +443,7 @@ export const useWishlistStore = create<WishlistStore>()(
           }
         } catch (error) {
           console.error('Failed to sync wishlist from backend:', error);
+          toast.error('Failed to sync wishlist. Some items may not be saved.');
           // Keep local storage wishlist on error
         } finally {
           set({ isLoading: false });
@@ -427,12 +477,14 @@ export const useWishlistStore = create<WishlistStore>()(
             }
           } catch (error) {
             console.error('Failed to sync wishlist to backend:', error);
+            toast.warning('Wishlist updated locally but may not sync to server');
             // Keep local change even if sync fails
           }
         }
       },
       removeItem: async (productId) => {
         const items = get().items;
+        const removedItem = items.find((item) => item.id === productId); // Store before removing
 
         // Update local state immediately
         set({
@@ -441,23 +493,24 @@ export const useWishlistStore = create<WishlistStore>()(
 
         // Sync to backend if logged in
         const authStore = useAuthStore.getState();
-        if (authStore.user) {
+        if (authStore.user && removedItem) {
           try {
             const response = await fetch(`/api/wishlist?productId=${productId}`, {
               method: 'DELETE',
             });
             if (!response.ok) {
               // Revert local change on error (restore item)
-              const removedItem = items.find((item) => item.id === productId);
-              if (removedItem) {
-                set({ items: [...items] });
-              }
+              const currentItems = get().items;
+              set({ items: [...currentItems, removedItem] }); // Add removed item back
               const data = await response.json();
               console.error('Failed to remove from wishlist:', data.error);
             }
           } catch (error) {
+            // Revert on network error too
+            const currentItems = get().items;
+            set({ items: [...currentItems, removedItem] }); // Add removed item back
             console.error('Failed to sync wishlist removal to backend:', error);
-            // Keep local change even if sync fails
+            toast.error('Failed to remove item. Please try again.');
           }
         }
       },

@@ -10,6 +10,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Trash2, Plus, Minus } from "lucide-react";
 import { useCartStore, useAuthStore } from "@/lib/store";
+import { toast } from "sonner";
 
 export default function CartPage() {
   const items = useCartStore((state) => state.items);
@@ -82,9 +83,13 @@ export default function CartPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
-                              onClick={() =>
-                                updateQuantity(item.id, item.quantity - 1)
-                              }
+                              onClick={async () => {
+                                try {
+                                  await updateQuantity(item.id, item.quantity - 1);
+                                } catch (error: any) {
+                                  toast.error(error.message || 'Failed to update quantity');
+                                }
+                              }}
                             >
                               <Minus className="h-4 w-4" />
                             </Button>
@@ -93,9 +98,13 @@ export default function CartPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
-                              onClick={() =>
-                                updateQuantity(item.id, item.quantity + 1)
-                              }
+                              onClick={async () => {
+                                try {
+                                  await updateQuantity(item.id, item.quantity + 1);
+                                } catch (error: any) {
+                                  toast.error(error.message || 'Failed to update quantity');
+                                }
+                              }}
                             >
                               <Plus className="h-4 w-4" />
                             </Button>

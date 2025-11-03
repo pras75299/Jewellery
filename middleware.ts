@@ -1,11 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// In-memory rate limiting (for production, use Redis/Upstash)
+// In-memory rate limiting with automatic cleanup (fixes Issue #2)
+// For production with multiple instances, consider using Redis/Upstash
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 100; // 100 requests per minute per IP
 const MAX_REQUEST_SIZE = 1024 * 1024; // 1MB
+const CLEANUP_INTERVAL = 5 * 60 * 1000; // Clean up every 5 minutes
+const MAX_MAP_SIZE = 10000; // Prevent unbounded growth
+
+// Cleanup expired entries periodically
+let lastCleanup = Date.now();
+
+function cleanupExpiredEntries() {
+  const now = Date.now();
+  
+  // Only cleanup if enough time has passed or map is getting large
+  if (now - lastCleanup < CLEANUP_INTERVAL && rateLimitMap.size < MAX_MAP_SIZE) {
+    return;
+  }
+  
+  lastCleanup = now;
+  let cleaned = 0;
+  
+  for (const [key, record] of rateLimitMap.entries()) {
+    if (now > record.resetTime) {
+      rateLimitMap.delete(key);
+      cleaned++;
+    }
+  }
+  
+  // If map is still too large after cleanup, remove oldest entries
+  if (rateLimitMap.size > MAX_MAP_SIZE) {
+    const entries = Array.from(rateLimitMap.entries())
+      .sort((a, b) => a[1].resetTime - b[1].resetTime);
+    
+    const toRemove = entries.slice(0, Math.floor(entries.length * 0.2)); // Remove 20% oldest
+    toRemove.forEach(([key]) => rateLimitMap.delete(key));
+  }
+}
 
 function getRateLimitKey(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
@@ -15,6 +49,9 @@ function getRateLimitKey(request: NextRequest): string {
 }
 
 function checkRateLimit(key: string): boolean {
+  // Cleanup expired entries periodically (fixes Issue #10 and #2)
+  cleanupExpiredEntries();
+  
   const now = Date.now();
   const record = rateLimitMap.get(key);
 

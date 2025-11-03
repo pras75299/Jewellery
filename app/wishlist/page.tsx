@@ -9,6 +9,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Trash2, ShoppingCart, Heart } from "lucide-react";
 import { useWishlistStore, useCartStore, useAuthStore } from "@/lib/store";
+import { toast } from "sonner";
 
 export default function WishlistPage() {
   const items = useWishlistStore((state) => state.items);
@@ -85,9 +86,13 @@ export default function WishlistPage() {
                   </div>
                   <Button
                     className="w-full"
-                    onClick={() => {
-                      addToCart(item);
-                      removeItem(item.id);
+                    onClick={async () => {
+                      try {
+                        await addToCart(item);
+                        removeItem(item.id);
+                      } catch (error: any) {
+                        toast.error(error.message || 'Failed to add to cart');
+                      }
                     }}
                   >
                     <ShoppingCart className="h-4 w-4 mr-2" />
