@@ -6,7 +6,7 @@ import { z } from 'zod';
 // PUT /api/cart/:id - Update cart item quantity
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const user = await getAuthUser(request);
@@ -18,12 +18,15 @@ export async function PUT(
       );
     }
 
+    // Handle params - could be a Promise or object (Next.js 15 compatibility)
+    const { id } = await Promise.resolve(params);
+
     const body = await request.json();
     const { quantity } = z.object({ quantity: z.number().int().positive() }).parse(body);
 
     const cartItem = await prisma.cartItem.findFirst({
       where: {
-        id: params.id,
+        id: id,
         userId: user.id,
       },
     });
@@ -36,7 +39,7 @@ export async function PUT(
     }
 
     const updatedItem = await prisma.cartItem.update({
-      where: { id: params.id },
+      where: { id: id },
       data: { quantity },
       include: {
         product: {
@@ -79,7 +82,7 @@ export async function PUT(
 // DELETE /api/cart/:id - Remove item from cart
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const user = await getAuthUser(request);
@@ -91,9 +94,12 @@ export async function DELETE(
       );
     }
 
+    // Handle params - could be a Promise or object (Next.js 15 compatibility)
+    const { id } = await Promise.resolve(params);
+
     const cartItem = await prisma.cartItem.findFirst({
       where: {
-        id: params.id,
+        id: id,
         userId: user.id,
       },
     });
@@ -106,7 +112,7 @@ export async function DELETE(
     }
 
     await prisma.cartItem.delete({
-      where: { id: params.id },
+      where: { id: id },
     });
 
     return NextResponse.json({
