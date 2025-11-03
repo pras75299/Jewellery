@@ -36,30 +36,46 @@ export default function Header() {
       <div className="hidden md:block border-b bg-muted/40">
         <div className="container mx-auto px-4 py-2">
           <div className="flex justify-between items-center text-sm">
-            <p className="text-muted-foreground">FREE SHIPPING ON ORDERS OVER ₹499</p>
+            <p className="text-muted-foreground">
+              FREE SHIPPING ON ORDERS OVER ₹499
+            </p>
             <div className="flex items-center gap-4">
-              <Link href="/services/design" className="text-muted-foreground hover:text-primary">
+              {/* <Link href="/services/design" className="text-muted-foreground hover:text-primary">
                 Design Service
               </Link>
               <Link href="/services/repair" className="text-muted-foreground hover:text-primary">
                 Repair Service
-              </Link>
+              </Link> */}
               {user ? (
                 <>
-                  <span className="text-muted-foreground">Welcome, {user.name || user.email}</span>
-                  <Link href="/account" className="text-muted-foreground hover:text-primary">
+                  <span className="text-muted-foreground">
+                    Welcome, {user.name || user.email}
+                  </span>
+                  <Link
+                    href="/account"
+                    className="text-muted-foreground hover:text-primary"
+                  >
                     My Account
                   </Link>
-                  <button onClick={handleLogout} className="text-muted-foreground hover:text-primary">
+                  <button
+                    onClick={handleLogout}
+                    className="text-muted-foreground hover:text-primary"
+                  >
                     Logout
                   </button>
                 </>
               ) : (
                 <>
-                  <Link href="/login" className="text-muted-foreground hover:text-primary">
+                  <Link
+                    href="/login"
+                    className="text-muted-foreground hover:text-primary"
+                  >
                     My Account
                   </Link>
-                  <Link href="/register" className="text-muted-foreground hover:text-primary">
+                  <Link
+                    href="/register"
+                    className="text-muted-foreground hover:text-primary"
+                  >
                     Create Account
                   </Link>
                 </>
