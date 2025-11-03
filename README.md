@@ -2,6 +2,14 @@
 
 A modern, high-performance e-commerce application built with Next.js 16, TypeScript, Tailwind CSS, shadcn/ui, and Aceternity UI components.
 
+## 📦 Previous Version
+
+The legacy static version of this application is available at:
+- **Live URL**: [https://jewellery-ecom-static.netlify.app/index.html](https://jewellery-ecom-static.netlify.app/index.html)
+- **GitHub Branch**: `oldmasterbranch` - Contains the previous static HTML/CSS/JS implementation
+
+The current repository (Next.js version) is on the `master` branch.
+
 ## Features
 
 - 🛍️ **Product Catalog** - Browse and filter products by category, price, and more
@@ -175,6 +183,13 @@ npm run dev
 
 ## Docker Configuration
 
+### Overview
+
+The project includes Docker configuration for both development and production environments:
+
+- **Development**: `docker-compose.dev.yml` + `Dockerfile.dev` - Hot reload, development tools
+- **Production**: `docker-compose.yml` + `Dockerfile` - Optimized multi-stage build
+
 ### Environment Variables
 
 For production deployments, make sure to update the following in `docker-compose.yml`:
@@ -191,6 +206,37 @@ JWT_SECRET=your-production-secret-here
 DATABASE_URL=postgresql://user:password@postgres:5432/jewellery_db?schema=public
 NODE_ENV=production
 ```
+
+### Docker Configuration Details
+
+#### Production Dockerfile (`Dockerfile`)
+- ✅ Multi-stage build (deps → builder → runner)
+- ✅ Uses Node.js 20 Alpine for smaller image size
+- ✅ Generates Prisma Client during build
+- ✅ Runs production build with `npm run build`
+- ✅ Uses non-root user for security
+- ✅ Copies standalone output from `.next/standalone` directory
+- ✅ Includes Prisma schema for runtime migrations
+- ✅ **Verified**: `next.config.ts` has `output: 'standalone'` configured correctly
+
+#### Development Dockerfile (`Dockerfile.dev`)
+- ✅ Single-stage build for faster iteration
+- ✅ Includes dev dependencies
+- ✅ Hot reload enabled
+- ✅ Volume mounts for live code changes
+
+#### Docker Compose Production (`docker-compose.yml`)
+- ✅ PostgreSQL 16 Alpine with health checks
+- ✅ App depends on postgres health
+- ✅ Auto-runs Prisma migrations on startup
+- ✅ Persistent data volumes
+- ✅ Production environment variables
+
+#### Docker Compose Development (`docker-compose.dev.yml`)
+- ✅ Separate dev database volume
+- ✅ Volume mounts for live code changes
+- ✅ Auto-seeds database on first run
+- ✅ Development environment with hot reload
 
 ## Docker Commands
 
