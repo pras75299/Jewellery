@@ -38,7 +38,7 @@
     "framer-motion": "^11.11.17",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.469.0",
-    "next": "^16.0.1",
+    "next": "16.0.10",
     "next-auth": "^4.24.13",
     "prisma": "^6.18.0",
     "react": "^19.2.0",
