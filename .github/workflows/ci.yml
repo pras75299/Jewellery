@@ -10,6 +10,11 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jewellery_db?schema=public
+      JWT_SECRET: dummy_ci_secret_32_chars_long_123456
+      NODE_ENV: test
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -24,7 +29,7 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npm run lint
+        run: npx next lint .
 
       - name: Run tests (if present)
         run: npm test --if-present
