@@ -29,7 +29,8 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npx next lint .
+        working-directory: .
+        run: npx next lint --dir .
 
       - name: Run tests (if present)
         run: npm test --if-present
