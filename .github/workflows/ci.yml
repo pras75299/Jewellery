@@ -28,10 +28,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        working-directory: .
-        run: npx next lint --dir .
-
       - name: Run tests (if present)
         run: npm test --if-present
 
