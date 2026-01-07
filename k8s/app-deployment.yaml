@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jewellery-app
+  labels:
+    app: jewellery
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: jewellery
+  template:
+    metadata:
+      labels:
+        app: jewellery
+    spec:
+      containers:
+      - name: app-container
+        image: nginx:latest
+        ports:
+        - containerPort: 80
