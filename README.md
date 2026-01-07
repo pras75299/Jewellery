@@ -31,6 +31,18 @@ The current repository (Next.js version) is on the `master` branch.
 - **State Management**: Zustand
 - **Icons**: Lucide React
 
+## DevOps Course Notes (Our Implementation)
+
+### Branching workflow
+- `master` = stable branch (release/deploy)
+- `dev` = integration branch
+- Feature branches: `feature/<name>` → Pull Request into `dev`
+
+### Local run (Docker Compose)
+```bash
+docker compose -f docker-compose.dev.yml up --build
+
+
 ## Getting Started
 
 ### Prerequisites
