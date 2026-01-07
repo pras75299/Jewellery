@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jewellery-app
+  labels:
+    app: jewellery
+spec:
+  replicas: 2 # This provides "High Availability" - your 2nd member specialty!
+  selector:
+    matchLabels:
+      app: jewellery
+  template:
+    metadata:
+      labels:
+        app: jewellery
+    spec:
+      containers:
+      - name: app-container
+        image: nginx:latest # We'll swap this for your team's Docker image later
+        ports:
+        - containerPort: 80
